@@ -315,83 +315,81 @@
             </div>
             {% endif %}
         </div>
-    </nav>
-
-    <div class="container">
+        <div class="container">
         
         <!-- Metrics Overview -->
         <div class="metrics-grid">
             <div class="card">
-                <div class="card-header">Published Vector Layers</div>
+                <div class="card-header">Capas Vectoriales Publicadas</div>
                 <div class="card-value" id="metricLayers">{{ metrics.total_layers }}</div>
-                <div class="card-sub">PostGIS `vectors` schema</div>
+                <div class="card-sub">Esquema PostGIS `vectors`</div>
             </div>
             <div class="card">
-                <div class="card-header">Total Layer Storage</div>
+                <div class="card-header">Almacenamiento Total</div>
                 <div class="card-value">{{ metrics.total_size_formatted }}</div>
-                <div class="card-sub">PostGIS `vectors` tables</div>
+                <div class="card-sub">Tablas de capas en PostGIS</div>
             </div>
             <div class="card">
-                <div class="card-header">Layer WMS Health</div>
+                <div class="card-header">Salud del Servicio WMS</div>
                 <div class="card-value" style="color: {{ '#34d399' if metrics.layer_health_pct > 80 else '#f87171' }}">
                     {{ metrics.layer_health_pct }}%
                 </div>
-                <div class="card-sub">{{ metrics.healthy_layers }} of {{ metrics.total_gs_layers }} layers responding</div>
+                <div class="card-sub">{{ metrics.healthy_layers }} de {{ metrics.total_gs_layers }} capas respondiendo</div>
             </div>
             <div class="card">
-                <div class="card-header">Registered App Users</div>
+                <div class="card-header">Usuarios Registrados</div>
                 <div class="card-value">{{ metrics.user_count }}</div>
-                <div class="card-sub">Keycloak `my-app` Realm</div>
+                <div class="card-sub">Realm `my-app` en Keycloak</div>
             </div>
             <div class="card">
-                <div class="card-header">PostGIS Engine Status</div>
+                <div class="card-header">Estado Motor PostGIS</div>
                 <div class="card-value" style="color: {{ '#34d399' if metrics.db_connected else '#f87171' }}">
-                    {{ 'ONLINE' if metrics.db_connected else 'OFFLINE' }}
+                    {{ 'EN LÍNEA' if metrics.db_connected else 'DESCONECTADO' }}
                 </div>
-                <div class="card-sub">Spatial Queries Active</div>
+                <div class="card-sub">Consultas Espaciales Activas</div>
             </div>
             <div class="card">
-                <div class="card-header">GeoServer WMS Engine</div>
+                <div class="card-header">Motor WMS GeoServer</div>
                 <div class="card-value" style="color: {{ '#34d399' if metrics.geoserver_connected else '#f87171' }}">
-                    {{ 'ONLINE' if metrics.geoserver_connected else 'OFFLINE' }}
+                    {{ 'EN LÍNEA' if metrics.geoserver_connected else 'DESCONECTADO' }}
                 </div>
-                <div class="card-sub">Layer Publisher Service</div>
+                <div class="card-sub">Servicio de Publicación</div>
             </div>
             <div class="card">
-                <div class="card-header">Admin Uptime</div>
+                <div class="card-header">Tiempo de Actividad</div>
                 <div class="card-value">{{ metrics.uptime }}</div>
-                <div class="card-sub">System Running</div>
+                <div class="card-sub">Sistema Operativo</div>
             </div>
         </div>
 
         <!-- Navigation Tabs -->
         <div class="tab-buttons">
-            <button class="tab-btn active" onclick="switchTab('manage')">📁 Layer Management</button>
-            <button class="tab-btn" onclick="switchTab('upload')">📤 Upload Shapefiles</button>
-            <button class="tab-btn" onclick="switchTab('logs')">📋 Microservice Logs</button>
-            <button class="tab-btn" onclick="switchTab('system')">⚙️ System Info</button>
+            <button class="tab-btn active" onclick="switchTab('manage')">📁 Gestión de Capas</button>
+            <button class="tab-btn" onclick="switchTab('upload')">📤 Cargar Shapefiles</button>
+            <button class="tab-btn" onclick="switchTab('logs')">📋 Registros de Servicios</button>
+            <button class="tab-btn" onclick="switchTab('system')">⚙️ Información del Sistema</button>
         </div>
 
         <!-- Tab 1: Layer Management -->
         <div id="tab-manage" class="tab-content active card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h3>Published Spatial Vector Layers</h3>
-                <input type="text" id="searchInput" class="search-input" placeholder="Search layers by name..." oninput="fetchLayers()">
+                <h3>Capas Espaciales Vectoriales Publicadas</h3>
+                <input type="text" id="searchInput" class="search-input" placeholder="Buscar capas por nombre..." oninput="fetchLayers()">
             </div>
             
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>Layer Name</th>
-                            <th>GeoServer Workspace</th>
-                            <th>Layer Type</th>
-                            <th>Actions</th>
+                            <th>Nombre de Capa</th>
+                            <th>Espacio de Trabajo GeoServer</th>
+                            <th>Tipo de Capa</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="layersTableBody">
                         <tr>
-                            <td colspan="4" style="text-align: center; color: var(--text-muted);">Loading layers...</td>
+                            <td colspan="4" style="text-align: center; color: var(--text-muted);">Cargando capas...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -400,15 +398,15 @@
 
         <!-- Tab 2: Upload Shapefiles -->
         <div id="tab-upload" class="tab-content card">
-            <h3 style="margin-bottom: 12px;">Upload Shapefile Data</h3>
+            <h3 style="margin-bottom: 12px;">Cargar Datos Shapefile</h3>
             <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">
-                Select all components of your shapefile (<strong>.shp, .shx, .dbf, .prj</strong>) to convert, insert into PostGIS, and publish to GeoServer.
+                Seleccione todos los componentes de su Shapefile (<strong>.shp, .shx, .dbf, .prj</strong>) para convertirlos, insertarlos en PostGIS y publicarlos en GeoServer.
             </p>
             
             <form id="uploadForm" onsubmit="handleUpload(event)">
                 <div class="upload-dropzone" onclick="document.getElementById('fileInput').click()">
                     <div style="font-size: 2.5rem; margin-bottom: 10px;">📂</div>
-                    <div style="font-weight: 600; margin-bottom: 6px;">Click or drag shapefile components here</div>
+                    <div style="font-weight: 600; margin-bottom: 6px;">Haga clic o arrastre los componentes del Shapefile aquí</div>
                     <div style="font-size: 0.8rem; color: var(--text-muted);">.shp, .shx, .dbf, .prj</div>
                     <input type="file" id="fileInput" class="file-input" multiple onchange="handleFileSelection(event)">
                 </div>
@@ -416,8 +414,8 @@
                 <!-- Selected Files List Table Container -->
                 <div id="selectedFilesContainer" style="margin-top: 20px; display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <h4 style="font-size: 0.95rem; color: var(--text-main);">Selected Files (<span id="selectedCount">0</span>)</h4>
-                        <button type="button" class="btn-primary" style="padding: 6px 14px; font-size: 0.8rem; width: auto;" onclick="document.getElementById('fileInput').click()">+ Add More Files</button>
+                        <h4 style="font-size: 0.95rem; color: var(--text-main);">Archivos Seleccionados (<span id="selectedCount">0</span>)</h4>
+                        <button type="button" class="btn-primary" style="padding: 6px 14px; font-size: 0.8rem; width: auto;" onclick="document.getElementById('fileInput').click()">+ Añadir Más Archivos</button>
                     </div>
                     
                     <div class="table-container" style="max-height: 250px; overflow-y: auto; border: 1px solid var(--card-border); border-radius: 8px;">
