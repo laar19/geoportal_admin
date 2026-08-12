@@ -4,12 +4,19 @@ This guide details the manual step-by-step procedures for deploying the **Geopor
 
 ---
 
-## 📋 Prerequisites
+## 📋 Prerequisites & Hardware Requirements
 
+### Minimum Hardware Specs:
+- **vCPU**: `2 Cores`
+- **RAM**: `2 GB`
+- **Disk Storage**: `20 GB` (SSD / HDD)
+
+### Service Dependencies:
 - **Python Manager**: `pyenv`
 - **Keycloak Server**: Running Keycloak instance (e.g., `http://10.10.100.109:8085`)
 - **FastAPI Backend**: Running Geoportal Backend (e.g., `http://10.10.100.245:8000/api/v1`)
 - **PostGIS DB**: Connection details to PostGIS database
+
 
 
 ---
