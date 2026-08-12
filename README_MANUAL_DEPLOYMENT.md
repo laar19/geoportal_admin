@@ -146,6 +146,9 @@ EnvironmentFile=/opt/geoportal_admin/.env
 WantedBy=multi-user.target
 ```
 
+> [!IMPORTANT]
+> **Arranque Automático tras Reinicio de VM (Systemd Auto-Start)**: Se debe ejecutar el comando `sudo systemctl enable geoportal-admin` para registrar el servicio y garantizar que inicie automáticamente tras cualquier reinicio de la Máquina Virtual.
+
 Enable and start the service:
 ```bash
 sudo systemctl daemon-reload
@@ -153,3 +156,4 @@ sudo systemctl enable geoportal-admin
 sudo systemctl start geoportal-admin
 sudo systemctl status geoportal-admin
 ```
+
