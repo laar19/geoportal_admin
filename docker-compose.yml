@@ -1,0 +1,10 @@
+services:
+  admin:
+    build: .
+    container_name: geoportal_admin_standalone
+    env_file:
+      - .env
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/app

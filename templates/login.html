@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Geoportal Admin Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-card {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+        .btn-submit {
+            width: 100%;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        .btn-submit:hover {
+            background: #2563eb;
+        }
+        .form-input {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px 14px;
+            border-radius: 8px;
+            color: white;
+            margin-top: 8px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2 style="margin-bottom: 10px;">🗺️ Admin Center</h2>
+        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px;">Please authenticate to access the Geoportal Admin Console</p>
+        
+        <form method="POST">
+            <div style="text-align: left;">
+                <label style="font-size: 0.85rem; color: #94a3b8;">Email Address</label>
+                <input type="email" name="email" class="form-input" required placeholder="admin@geoportal.com">
+                <label style="font-size: 0.85rem; color: #94a3b8;">Password</label>
+                <input type="password" name="password" class="form-input" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn-submit">Log In</button>
+        </form>
+    </div>
+</body>
+</html>

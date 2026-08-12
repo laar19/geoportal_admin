@@ -1,0 +1,24 @@
+# Python & Flask
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Environment & Virtualenv
+.env
+.env.local
+.venv/
+venv/
+env/
+
+# IDE & OS
+.DS_Store
+.vscode/
+.idea/
+
+# Testing & Logs
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
