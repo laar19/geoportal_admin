@@ -410,12 +410,34 @@
                     <div style="font-size: 2.5rem; margin-bottom: 10px;">📂</div>
                     <div style="font-weight: 600; margin-bottom: 6px;">Click or drag shapefile components here</div>
                     <div style="font-size: 0.8rem; color: var(--text-muted);">.shp, .shx, .dbf, .prj</div>
-                    <input type="file" id="fileInput" class="file-input" multiple required onchange="updateFileCount()">
+                    <input type="file" id="fileInput" class="file-input" multiple onchange="handleFileSelection(event)">
                 </div>
-                <div id="fileCount" style="margin-top: 10px; font-size: 0.85rem; color: var(--primary);"></div>
+
+                <!-- Selected Files List Table Container -->
+                <div id="selectedFilesContainer" style="margin-top: 20px; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="font-size: 0.95rem; color: var(--text-main);">Selected Files (<span id="selectedCount">0</span>)</h4>
+                        <button type="button" class="btn-primary" style="padding: 6px 14px; font-size: 0.8rem; width: auto;" onclick="document.getElementById('fileInput').click()">+ Add More Files</button>
+                    </div>
+                    
+                    <div class="table-container" style="max-height: 250px; overflow-y: auto; border: 1px solid var(--card-border); border-radius: 8px;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px;">Type</th>
+                                    <th>File Name (Editable / Rename)</th>
+                                    <th style="width: 100px;">Size</th>
+                                    <th style="width: 80px; text-align: center;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="selectedFilesList">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 
                 <div style="margin-top: 20px; text-align: right;">
-                    <button type="submit" class="btn-primary" id="btnSubmit">Upload & Publish Layer</button>
+                    <button type="submit" class="btn-primary" id="btnSubmit" style="width: auto; padding: 12px 28px;">Upload & Publish Layer</button>
                 </div>
             </form>
             <div id="uploadStatus" style="margin-top: 15px; font-weight: 500;"></div>
@@ -453,6 +475,7 @@
 
     <script>
         const BACKEND_URL = "{{ backend_url }}";
+        let selectedFilesList = [];
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -495,23 +518,95 @@
             }
         }
 
-        function updateFileCount() {
-            const files = document.getElementById('fileInput').files;
-            document.getElementById('fileCount').innerText = `${files.length} file(s) selected`;
+        function handleFileSelection(e) {
+            const files = Array.from(e.target.files);
+            files.forEach(file => {
+                if (!selectedFilesList.some(f => f.file.name === file.name)) {
+                    selectedFilesList.push({
+                        id: Math.random().toString(36).substr(2, 9),
+                        file: file,
+                        customName: file.name
+                    });
+                }
+            });
+            renderSelectedFiles();
+            e.target.value = '';
+        }
+
+        function formatSize(bytes) {
+            if (bytes >= 1048576) return (bytes / 1048576).toFixed(2) + ' MB';
+            if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return bytes + ' B';
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        function renderSelectedFiles() {
+            const container = document.getElementById('selectedFilesContainer');
+            const tbody = document.getElementById('selectedFilesList');
+            const countSpan = document.getElementById('selectedCount');
+
+            if (selectedFilesList.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'block';
+            countSpan.innerText = selectedFilesList.length;
+
+            tbody.innerHTML = selectedFilesList.map(item => {
+                const ext = item.file.name.split('.').pop().toLowerCase();
+                const extBadgeClass = ['shp', 'shx', 'dbf', 'prj'].includes(ext) ? 'badge-success' : 'badge-danger';
+                const formattedSize = formatSize(item.file.size);
+
+                return `
+                    <tr>
+                        <td><span class="badge ${extBadgeClass}">.${ext}</span></td>
+                        <td>
+                            <input type="text" value="${escapeHtml(item.customName)}" 
+                                   onchange="updateFileName('${item.id}', this.value)"
+                                   style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--card-border); color: white; padding: 6px 10px; border-radius: 6px; width: 95%; font-size: 0.85rem;">
+                        </td>
+                        <td style="color: var(--text-muted); font-size: 0.85rem;">${formattedSize}</td>
+                        <td style="text-align: center;">
+                            <button type="button" onclick="removeSelectedFile('${item.id}')" 
+                                    style="background: none; border: none; color: #f87171; cursor: pointer; font-size: 1.1rem;" title="Deselect file">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateFileName(id, newName) {
+            const item = selectedFilesList.find(f => f.id === id);
+            if (item && newName.trim()) {
+                item.customName = newName.trim();
+            }
+        }
+
+        function removeSelectedFile(id) {
+            selectedFilesList = selectedFilesList.filter(f => f.id !== id);
+            renderSelectedFiles();
         }
 
         async function handleUpload(e) {
             e.preventDefault();
-            const files = document.getElementById('fileInput').files;
             const statusDiv = document.getElementById('uploadStatus');
             const submitBtn = document.getElementById('btnSubmit');
 
-            if (files.length === 0) return;
+            if (selectedFilesList.length === 0) {
+                statusDiv.style.color = '#f87171';
+                statusDiv.innerText = 'Please select shapefile components before uploading.';
+                return;
+            }
 
             const formData = new FormData();
-            for (let i = 0; i < files.length; i++) {
-                formData.append('files', files[i]);
-            }
+            selectedFilesList.forEach(item => {
+                const renamedFile = new File([item.file], item.customName, { type: item.file.type });
+                formData.append('files', renamedFile);
+            });
 
             statusDiv.style.color = 'var(--primary)';
             statusDiv.innerText = 'Processing and publishing shapefiles...';
@@ -526,8 +621,8 @@
                 if (res.ok) {
                     statusDiv.style.color = '#34d399';
                     statusDiv.innerText = `Success: ${result.message}`;
-                    document.getElementById('uploadForm').reset();
-                    document.getElementById('fileCount').innerText = '';
+                    selectedFilesList = [];
+                    renderSelectedFiles();
                     fetchLayers();
                 } else {
                     statusDiv.style.color = '#f87171';
