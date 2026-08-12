@@ -327,6 +327,23 @@
                 <div class="card-sub">PostGIS `vectors` schema</div>
             </div>
             <div class="card">
+                <div class="card-header">Total Layer Storage</div>
+                <div class="card-value">{{ metrics.total_size_formatted }}</div>
+                <div class="card-sub">PostGIS `vectors` tables</div>
+            </div>
+            <div class="card">
+                <div class="card-header">Layer WMS Health</div>
+                <div class="card-value" style="color: {{ '#34d399' if metrics.layer_health_pct > 80 else '#f87171' }}">
+                    {{ metrics.layer_health_pct }}%
+                </div>
+                <div class="card-sub">{{ metrics.healthy_layers }} of {{ metrics.total_gs_layers }} layers responding</div>
+            </div>
+            <div class="card">
+                <div class="card-header">Registered App Users</div>
+                <div class="card-value">{{ metrics.user_count }}</div>
+                <div class="card-sub">Keycloak `my-app` Realm</div>
+            </div>
+            <div class="card">
                 <div class="card-header">PostGIS Engine Status</div>
                 <div class="card-value" style="color: {{ '#34d399' if metrics.db_connected else '#f87171' }}">
                     {{ 'ONLINE' if metrics.db_connected else 'OFFLINE' }}

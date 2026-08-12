@@ -22,10 +22,17 @@ LOGIN_ENABLED = os.getenv("LOGIN", "True").lower() == "true"
 # Keycloak OIDC Configuration
 ENABLE_KEYCLOAK_AUTH = os.getenv("ENABLE_KEYCLOAK_AUTH", "True").lower() == "true"
 KEYCLOAK_SERVER_URL = os.getenv("KEYCLOAK_SERVER_URL", "http://10.10.100.109:8085")
-KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "my-app")
-KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "my-web-app")
-KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "a-super-secret-value")
+KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "geoportal-admin")
+KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "admin-panel")
+KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "admin-panel-secret")
 KEYCLOAK_REDIRECT_URI = os.getenv("KEYCLOAK_REDIRECT_URI")
+
+# PostGIS Database Credentials for Size Calculations
+POSTGIS_HOST = os.getenv("POSTGIS_HOST", "10.10.100.194")
+POSTGIS_PORT = os.getenv("POSTGIS_PORT", "5432")
+POSTGIS_DB = os.getenv("POSTGIS_DB", "geoportal_db")
+POSTGIS_USER = os.getenv("POSTGIS_USER", "geoportal_user")
+POSTGIS_PASSWORD = os.getenv("POSTGIS_PASSWORD", "geoportal_pass")
 
 # Distributed VM Service IPs for Log Monitoring
 VM_SERVICE_IPS = {
@@ -65,6 +72,95 @@ def login_required_if_enabled(f):
         return f(*args, **kwargs)
     return decorated_view
 
+def get_total_layers_size():
+    """Queries PostGIS directly for total size of vector tables in vectors schema"""
+    import psycopg2
+    try:
+        conn = psycopg2.connect(
+            host=POSTGIS_HOST, port=POSTGIS_PORT,
+            dbname=POSTGIS_DB, user=POSTGIS_USER, password=POSTGIS_PASSWORD,
+            connect_timeout=3
+        )
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COALESCE(SUM(pg_total_relation_size(quote_ident(table_name)::regclass)), 0)
+            FROM information_schema.tables 
+            WHERE table_schema = 'vectors';
+        """)
+        size_bytes = cur.fetchone()[0]
+        conn.close()
+        return int(size_bytes or 0)
+    except Exception as e:
+        print(f"PostGIS Size Error: {e}")
+        return 0
+
+def format_size(size_bytes):
+    """Formats bytes to KB, MB, or GB automatically"""
+    if size_bytes >= 1073741824:
+        return f"{size_bytes / 1073741824:.2f} GB"
+    elif size_bytes >= 1048576:
+        return f"{size_bytes / 1048576:.2f} MB"
+    elif size_bytes >= 1024:
+        return f"{size_bytes / 1024:.2f} KB"
+    return f"{size_bytes} B"
+
+def get_layer_health():
+    """Checks WMS health for published layers in GeoServer"""
+    try:
+        r = requests.get(f"{GEOSERVER_PUBLIC_URL}/rest/layers.json", 
+                         auth=('admin', os.getenv("GEOSERVER_ADMIN_PASSWORD", "geoserver")), 
+                         timeout=3)
+        if r.status_code != 200:
+            return 0, 0, 0
+        layers_data = r.json().get("layers", {})
+        if not layers_data or "layer" not in layers_data:
+            return 0, 0, 100
+        layers_list = layers_data.get("layer", [])
+        if isinstance(layers_list, dict):
+            layers_list = [layers_list]
+        total = len(layers_list)
+        if total == 0:
+            return 0, 0, 100
+        healthy = 0
+        for layer in layers_list:
+            name = layer.get("name", "")
+            try:
+                wms_r = requests.get(
+                    f"{GEOSERVER_PUBLIC_URL}/wms?service=WMS&request=GetMap&layers={name}&bbox=-180,-90,180,90&width=1&height=1&srs=EPSG:4326&format=image/png",
+                    timeout=2
+                )
+                if wms_r.status_code == 200:
+                    healthy += 1
+            except Exception:
+                pass
+        pct = int((healthy / total) * 100) if total > 0 else 100
+        return healthy, total, pct
+    except Exception as e:
+        print(f"Layer Health Error: {e}")
+        return 0, 0, 0
+
+def get_user_count():
+    """Queries Keycloak Admin API for total user count in application realm (my-app)"""
+    try:
+        token_r = requests.post(
+            f"{KEYCLOAK_SERVER_URL}/realms/master/protocol/openid-connect/token",
+            data={"grant_type": "password", "client_id": "admin-cli",
+                  "username": "admin", "password": "admin"},
+            timeout=3
+        )
+        if token_r.status_code != 200:
+            return 0
+        token = token_r.json().get("access_token")
+        count_r = requests.get(
+            f"{KEYCLOAK_SERVER_URL}/admin/realms/my-app/users/count",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=3
+        )
+        return count_r.json() if count_r.status_code == 200 else 0
+    except Exception as e:
+        print(f"User Count Error: {e}")
+        return 0
+
 def get_system_metrics():
     db_ok = False
     gs_ok = False
@@ -98,13 +194,24 @@ def get_system_metrics():
     uptime_seconds = int(time.time() - START_TIME)
     uptime_str = f"{uptime_seconds // 3600}h {(uptime_seconds % 3600) // 60}m {uptime_seconds % 60}s"
 
+    size_bytes = get_total_layers_size()
+    size_formatted = format_size(size_bytes)
+    healthy_layers, total_gs_layers, layer_health_pct = get_layer_health()
+    user_count = get_user_count()
+
     return {
         "db_connected": db_ok,
         "geoserver_connected": gs_ok,
         "total_layers": layers_count,
         "uptime": uptime_str,
         "backend_url": BACKEND_PUBLIC_URL,
-        "geoserver_url": GEOSERVER_PUBLIC_URL
+        "geoserver_url": GEOSERVER_PUBLIC_URL,
+        "total_size_bytes": size_bytes,
+        "total_size_formatted": size_formatted,
+        "healthy_layers": healthy_layers,
+        "total_gs_layers": total_gs_layers,
+        "layer_health_pct": layer_health_pct,
+        "user_count": user_count
     }
 
 def fetch_remote_logs(service_name, lines=50):
