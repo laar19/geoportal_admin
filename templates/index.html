@@ -601,14 +601,150 @@
 
         function updateFileName(id, newName) {
             const item = selectedFilesList.find(f => f.id === id);
-            if (item && newName.trim()) {
-                item.customName = newName.trim();
+            if (!item || !newName.trim()) return;
+
+            const oldFullName = item.customName;
+            const getStem = (fname) => {
+                if (fname.toLowerCase().endsWith('.shp.xml')) return fname.slice(0, -8);
+                const idx = fname.lastIndexOf('.');
+                return idx > 0 ? fname.slice(0, idx) : fname;
+            };
+
+            const getExt = (fname) => {
+                if (fname.toLowerCase().endsWith('.shp.xml')) return '.shp.xml';
+                const idx = fname.lastIndexOf('.');
+                return idx >= 0 ? fname.slice(idx) : '';
+            };
+
+            const oldStem = getStem(oldFullName);
+            const newTrimmed = newName.trim();
+            const newStem = getStem(newTrimmed);
+
+            if (oldStem && newStem && oldStem.toLowerCase() !== newStem.toLowerCase()) {
+                selectedFilesList.forEach(fileObj => {
+                    const fStem = getStem(fileObj.customName);
+                    const fExt = getExt(fileObj.customName);
+                    if (fStem.toLowerCase() === oldStem.toLowerCase()) {
+                        fileObj.customName = newStem + fExt;
+                    }
+                });
+                renderSelectedFiles();
+            } else {
+                item.customName = newTrimmed;
             }
         }
 
         function removeSelectedFile(id) {
             selectedFilesList = selectedFilesList.filter(f => f.id !== id);
             renderSelectedFiles();
+        }
+
+        let lastBatchResults = null;
+
+        function renderBatchResultsUI(result, statusDivId) {
+            const statusDiv = document.getElementById(statusDivId);
+            const results = result.results || { successful: [], duplicates: [], errors: [] };
+            lastBatchResults = results;
+
+            const succCount = results.successful.length;
+            const dupCount = results.duplicates.length;
+            const errCount = results.errors.length;
+
+            let html = `
+                <div style="background: rgba(15, 23, 42, 0.9); border: 1px solid var(--card-border); border-radius: 8px; padding: 16px; margin-top: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                        <h4 style="margin: 0; font-size: 1rem; color: white;">📊 Resumen de Procesamiento de Lote</h4>
+                        <button type="button" onclick="exportBatchResultsCSV()" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.8rem;">
+                            📥 Exportar Reporte CSV
+                        </button>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: rgba(52, 211, 153, 0.15); border: 1px solid #34d399; color: #34d399; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: bold;">
+                            ✅ Publicados: ${succCount}
+                        </span>
+                        <span style="background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fbbf24; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: bold;">
+                            ⚠️ Duplicados Omitidos: ${dupCount}
+                        </span>
+                        <span style="background: rgba(248, 113, 113, 0.15); border: 1px solid #f87171; color: #f87171; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: bold;">
+                            ❌ Errores: ${errCount}
+                        </span>
+                    </div>
+
+                    <div style="max-height: 220px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted);">
+                                    <th style="padding: 6px;">Capa / Archivo</th>
+                                    <th style="padding: 6px;">Estado</th>
+                                    <th style="padding: 6px;">Detalle</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            results.successful.forEach(item => {
+                html += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 6px; color: white;"><strong>${item.layer}</strong> (${item.filename})</td>
+                        <td style="padding: 6px;"><span class="badge badge-success">Publicado</span></td>
+                        <td style="padding: 6px; color: #34d399;">${item.detail}</td>
+                    </tr>
+                `;
+            });
+
+            results.duplicates.forEach(item => {
+                html += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 6px; color: white;"><strong>${item.layer}</strong> (${item.filename})</td>
+                        <td style="padding: 6px;"><span style="background: #f59e0b; color: #0f172a; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;">Duplicado</span></td>
+                        <td style="padding: 6px; color: #fbbf24;">${item.detail}</td>
+                    </tr>
+                `;
+            });
+
+            results.errors.forEach(item => {
+                html += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 6px; color: white;"><strong>${item.layer}</strong> (${item.filename})</td>
+                        <td style="padding: 6px;"><span class="badge badge-danger">Error</span></td>
+                        <td style="padding: 6px; color: #f87171;">${item.detail}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            statusDiv.innerHTML = html;
+        }
+
+        function exportBatchResultsCSV() {
+            if (!lastBatchResults) return;
+
+            let csvContent = "data:text/csv;charset=utf-8,Archivo Shapefile,Capa Destino,Estado,Detalle\n";
+
+            lastBatchResults.successful.forEach(i => {
+                csvContent += `"${i.filename}","${i.layer}","Publicado Con Exito","${i.detail}"\n`;
+            });
+            lastBatchResults.duplicates.forEach(i => {
+                csvContent += `"${i.filename}","${i.layer}","Duplicado Omitido","${i.detail}"\n`;
+            });
+            lastBatchResults.errors.forEach(i => {
+                csvContent += `"${i.filename}","${i.layer}","Error de Procesamiento","${i.detail}"\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `reporte_carga_shapefiles_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         async function handleUpload(e) {
@@ -629,7 +765,7 @@
             });
 
             statusDiv.style.color = 'var(--primary)';
-            statusDiv.innerText = 'Processing and publishing shapefiles...';
+            statusDiv.innerText = 'Processing and publishing shapefile batch... Please wait.';
             submitBtn.disabled = true;
 
             try {
@@ -639,20 +775,10 @@
                 });
                 const result = await res.json();
                 if (res.ok) {
-                    statusDiv.innerHTML = `<div style="color: #34d399; font-weight: bold; margin-top: 10px;">✅ Success: ${result.message}</div>`;
                     selectedFilesList = [];
                     renderSelectedFiles();
                     fetchLayers();
-                } else if (res.status === 409) {
-                    statusDiv.innerHTML = `
-                        <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fbbf24; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 0.9rem;">
-                            <strong>⚠️ Dataset Duplicado Detectado</strong><br>
-                            ${result.detail || 'Este archivo Shapefile es idéntico a una capa ya existente.'}<br>
-                            <button type="button" onclick="switchTab('manage')" style="margin-top: 10px; background: #f59e0b; color: #0f172a; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; cursor: pointer;">
-                                🔍 Ir a Administrar Capas
-                            </button>
-                        </div>
-                    `;
+                    renderBatchResultsUI(result, 'uploadStatus');
                 } else {
                     statusDiv.innerHTML = `<div style="color: #f87171; margin-top: 10px;">❌ Upload Failed: ${result.detail || 'Error uploading files'}</div>`;
                 }
