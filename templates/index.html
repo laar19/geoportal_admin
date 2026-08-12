@@ -639,18 +639,25 @@
                 });
                 const result = await res.json();
                 if (res.ok) {
-                    statusDiv.style.color = '#34d399';
-                    statusDiv.innerText = `Success: ${result.message}`;
+                    statusDiv.innerHTML = `<div style="color: #34d399; font-weight: bold; margin-top: 10px;">✅ Success: ${result.message}</div>`;
                     selectedFilesList = [];
                     renderSelectedFiles();
                     fetchLayers();
+                } else if (res.status === 409) {
+                    statusDiv.innerHTML = `
+                        <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fbbf24; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 0.9rem;">
+                            <strong>⚠️ Dataset Duplicado Detectado</strong><br>
+                            ${result.detail || 'Este archivo Shapefile es idéntico a una capa ya existente.'}<br>
+                            <button type="button" onclick="switchTab('manage')" style="margin-top: 10px; background: #f59e0b; color: #0f172a; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                                🔍 Ir a Administrar Capas
+                            </button>
+                        </div>
+                    `;
                 } else {
-                    statusDiv.style.color = '#f87171';
-                    statusDiv.innerText = `Upload Failed: ${result.detail || 'Error uploading files'}`;
+                    statusDiv.innerHTML = `<div style="color: #f87171; margin-top: 10px;">❌ Upload Failed: ${result.detail || 'Error uploading files'}</div>`;
                 }
             } catch (err) {
-                statusDiv.style.color = '#f87171';
-                statusDiv.innerText = `Network Error: ${err.message}`;
+                statusDiv.innerHTML = `<div style="color: #f87171; margin-top: 10px;">❌ Network Error: ${err.message}</div>`;
             } finally {
                 submitBtn.disabled = false;
             }
