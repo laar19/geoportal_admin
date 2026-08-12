@@ -1,16 +1,16 @@
 # Manual Deployment Guide: Geoportal Admin Center
 
-This guide details the manual step-by-step procedures for deploying the **Geoportal Admin Center** microservice on a Linux Virtual Machine (Debian 12 / Ubuntu 22.04+) without using Docker.
+This guide details the manual step-by-step procedures for deploying the **Geoportal Admin Center** microservice on a Linux Virtual Machine without using Docker.
 
 ---
 
 ## 📋 Prerequisites
 
-- **OS**: Debian 12 / Ubuntu 22.04 LTS
 - **Python Manager**: `pyenv`
 - **Keycloak Server**: Running Keycloak instance (e.g., `http://10.10.100.109:8085`)
 - **FastAPI Backend**: Running Geoportal Backend (e.g., `http://10.10.100.245:8000/api/v1`)
 - **PostGIS DB**: Connection details to PostGIS database
+
 
 ---
 
