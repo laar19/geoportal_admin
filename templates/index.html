@@ -485,6 +485,26 @@
             document.getElementById(`tab-${tabId}`).classList.add('active');
 
             if (tabId === 'manage') fetchLayers();
+            if (tabId === 'logs') fetchLogs();
+        }
+
+        async function fetchLogs() {
+            const service = document.getElementById('logServiceSelect').value;
+            const consoleDiv = document.getElementById('logConsole');
+            consoleDiv.innerText = `Fetching live logs for ${service}...`;
+
+            try {
+                const res = await fetch(`/api/admin/logs?service=${service}&lines=50`);
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    consoleDiv.innerText = data.logs || `[INFO] No recent logs available for ${service}.`;
+                    consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                } else {
+                    consoleDiv.innerText = `[ERROR] Failed to fetch logs: ${data.message || 'Unknown error'}`;
+                }
+            } catch (err) {
+                consoleDiv.innerText = `[ERROR] Network error fetching logs: ${err.message}`;
+            }
         }
 
         async function fetchLayers() {
