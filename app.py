@@ -73,23 +73,18 @@ def login_required_if_enabled(f):
     return decorated_view
 
 def get_total_layers_size():
-    """Queries PostGIS directly for total size of vector tables in vectors schema"""
-    import psycopg2
+    """Queries PostGIS via SQLAlchemy engine for total size of vector tables in vectors schema"""
+    from sqlalchemy import create_engine, text
     try:
-        conn = psycopg2.connect(
-            host=POSTGIS_HOST, port=POSTGIS_PORT,
-            dbname=POSTGIS_DB, user=POSTGIS_USER, password=POSTGIS_PASSWORD,
-            connect_timeout=3
-        )
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT COALESCE(SUM(pg_total_relation_size(quote_ident(table_name)::regclass)), 0)
-            FROM information_schema.tables 
-            WHERE table_schema = 'vectors';
-        """)
-        size_bytes = cur.fetchone()[0]
-        conn.close()
-        return int(size_bytes or 0)
+        db_url = f"postgresql://{POSTGIS_USER}:{POSTGIS_PASSWORD}@{POSTGIS_HOST}:{POSTGIS_PORT}/{POSTGIS_DB}"
+        engine = create_engine(db_url, connect_args={"connect_timeout": 3})
+        with engine.connect() as conn:
+            res = conn.execute(text("""
+                SELECT COALESCE(SUM(pg_total_relation_size(quote_ident(table_schema) || '.' || quote_ident(table_name))), 0)
+                FROM information_schema.tables 
+                WHERE table_schema = 'vectors';
+            """)).scalar()
+            return int(res or 0)
     except Exception as e:
         print(f"PostGIS Size Error: {e}")
         return 0
