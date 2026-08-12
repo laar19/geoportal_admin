@@ -13,13 +13,14 @@ This guide details instructions for manually deploying **Geoportal Admin Center*
 
 ---
 
-## 🛠️ Step-by-Step Installation
+## 🛠️ Step-by-Step Installation with `uv`
 
 ```bash
 cd /opt/geoportal_admin
-python3 -m venv venv
+pip install uv
+uv venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 ### Environment Setup (`.env`)

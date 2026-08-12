@@ -351,6 +351,7 @@
         <div class="tab-buttons">
             <button class="tab-btn active" onclick="switchTab('manage')">📁 Layer Management</button>
             <button class="tab-btn" onclick="switchTab('upload')">📤 Upload Shapefiles</button>
+            <button class="tab-btn" onclick="switchTab('logs')">📋 Microservice Logs</button>
             <button class="tab-btn" onclick="switchTab('system')">⚙️ System Info</button>
         </div>
 
@@ -403,7 +404,25 @@
             <div id="uploadStatus" style="margin-top: 15px; font-weight: 500;"></div>
         </div>
 
-        <!-- Tab 3: System Info -->
+        <!-- Tab 3: Microservice Logs -->
+        <div id="tab-logs" class="tab-content card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3>Real-Time Microservice Logs</h3>
+                <div style="display: flex; gap: 12px;">
+                    <select id="logServiceSelect" class="search-input" style="margin-bottom: 0; width: 200px;" onchange="fetchLogs()">
+                        <option value="backend">FastAPI Backend (VM 142)</option>
+                        <option value="frontend">Flask Frontend (VM 143)</option>
+                        <option value="geoserver">GeoServer Engine (VM 141)</option>
+                        <option value="admin">Admin Center (VM 144)</option>
+                    </select>
+                    <button class="btn-primary" onclick="fetchLogs()">🔄 Refresh Logs</button>
+                </div>
+            </div>
+            
+            <div style="background: #090d16; border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.85rem; height: 400px; overflow-y: auto; white-space: pre-wrap; color: #34d399;" id="logConsole">Select a microservice above to view live systemd logs...</div>
+        </div>
+
+        <!-- Tab 4: System Info -->
         <div id="tab-system" class="tab-content card">
             <h3>Infrastructure Configuration</h3>
             <div style="margin-top: 20px; display: grid; gap: 15px;">

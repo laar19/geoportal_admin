@@ -1,5 +1,6 @@
 import os
 import time
+import subprocess
 import requests
 from flask import Flask, render_template, redirect, url_for, request, flash, session, jsonify
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -12,10 +13,10 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "geoportal-admin-secret-key")
 
 # Configuration
-BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://localhost:8005/api/v1")
-BACKEND_INTERNAL_URL = os.getenv("BACKEND_URL", "http://backend:8000") + "/api/v1"
-GEOSERVER_PUBLIC_URL = os.getenv("GEOSERVER_PUBLIC_URL", "http://localhost:8870/geoserver")
-GEOSERVER_INTERNAL_URL = os.getenv("GEOSERVER_URL", "http://geoserver:8080")
+BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://10.10.100.245:8000/api/v1")
+BACKEND_INTERNAL_URL = os.getenv("BACKEND_URL", "http://10.10.100.245:8000") + "/api/v1"
+GEOSERVER_PUBLIC_URL = os.getenv("GEOSERVER_PUBLIC_URL", "http://10.10.100.161:8080/geoserver")
+GEOSERVER_INTERNAL_URL = os.getenv("GEOSERVER_URL", "http://10.10.100.161:8080")
 LOGIN_ENABLED = os.getenv("LOGIN", "True").lower() == "true"
 
 # Keycloak OIDC Configuration
@@ -25,6 +26,14 @@ KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "my-app")
 KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "my-web-app")
 KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "a-super-secret-value")
 KEYCLOAK_REDIRECT_URI = os.getenv("KEYCLOAK_REDIRECT_URI")
+
+# Distributed VM Service IPs for Log Monitoring
+VM_SERVICE_IPS = {
+    "backend": os.getenv("VM_BACKEND_IP", "10.10.100.245"),
+    "frontend": os.getenv("VM_FRONTEND_IP", "10.10.100.167"),
+    "geoserver": os.getenv("VM_GEOSERVER_IP", "10.10.100.161"),
+    "admin": os.getenv("VM_ADMIN_IP", "127.0.0.1"),
+}
 
 START_TIME = time.time()
 
@@ -63,44 +72,28 @@ def get_system_metrics():
 
     # Backend & DB Check
     try:
-        r = requests.get(f"{BACKEND_INTERNAL_URL}/health", timeout=3)
+        r = requests.get(f"{BACKEND_PUBLIC_URL}/health", timeout=3)
         if r.status_code == 200:
             db_ok = r.json().get("db_connected", False)
-    except Exception:
-        try:
-            r = requests.get(f"{BACKEND_PUBLIC_URL}/health", timeout=3)
-            if r.status_code == 200:
-                db_ok = r.json().get("db_connected", False)
-        except Exception as e:
-            print(f"Backend Metric Error: {e}")
+    except Exception as e:
+        print(f"Backend Health Error: {e}")
 
     # Layers Count
     try:
-        r = requests.get(f"{BACKEND_INTERNAL_URL}/layers/search?per_page=1000", timeout=3)
+        r = requests.get(f"{BACKEND_PUBLIC_URL}/layers/search?per_page=1000", timeout=3)
         if r.status_code == 200:
             layers_count = r.json().get("total", 0)
     except Exception:
-        try:
-            r = requests.get(f"{BACKEND_PUBLIC_URL}/layers/search?per_page=1000", timeout=3)
-            if r.status_code == 200:
-                layers_count = r.json().get("total", 0)
-        except Exception:
-            pass
+        pass
 
     # GeoServer Check
     try:
-        r = requests.get(f"{GEOSERVER_INTERNAL_URL}/geoserver/rest/about/version.xml", 
+        r = requests.get(f"{GEOSERVER_PUBLIC_URL}/rest/about/version.xml", 
                          auth=('admin', os.getenv("GEOSERVER_ADMIN_PASSWORD", "geoserver")), 
                          timeout=3)
         gs_ok = r.status_code == 200
     except Exception:
-        try:
-            r = requests.get(f"{GEOSERVER_PUBLIC_URL}/rest/about/version.xml", 
-                             auth=('admin', os.getenv("GEOSERVER_ADMIN_PASSWORD", "geoserver")), 
-                             timeout=3)
-            gs_ok = r.status_code == 200
-        except Exception:
-            gs_ok = False
+        gs_ok = False
 
     uptime_seconds = int(time.time() - START_TIME)
     uptime_str = f"{uptime_seconds // 3600}h {(uptime_seconds % 3600) // 60}m {uptime_seconds % 60}s"
@@ -113,6 +106,38 @@ def get_system_metrics():
         "backend_url": BACKEND_PUBLIC_URL,
         "geoserver_url": GEOSERVER_PUBLIC_URL
     }
+
+def fetch_remote_logs(service_name, lines=50):
+    """Fetch logs from target application microservice via SSH or Systemd journal"""
+    if service_name == "admin":
+        cmd = f"journalctl -u geoportal-admin.service -n {lines} --no-pager"
+        try:
+            res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=3)
+            return res.stdout or res.stderr or f"[INFO] Admin service running natively."
+        except Exception as e:
+            return f"[ERROR] Failed to read admin logs: {e}"
+
+    target_ip = VM_SERVICE_IPS.get(service_name)
+    if not target_ip:
+        return f"[WARN] Unknown microservice: {service_name}"
+
+    service_units = {
+        "backend": "geoportal-backend.service",
+        "frontend": "geoportal-frontend.service",
+        "geoserver": "geoserver.service",
+    }
+    unit = service_units.get(service_name, f"{service_name}.service")
+    
+    ssh_cmd = f"sshpass -p 'root' ssh -o StrictHostKeyChecking=no -o ConnectTimeout=3 root@{target_ip} 'journalctl -u {unit} -n {lines} --no-pager 2>/dev/null || tail -n {lines} /var/log/messages 2>/dev/null'"
+    
+    try:
+        res = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True, timeout=5)
+        output = res.stdout.strip()
+        if not output:
+            output = f"[INFO] Service {service_name} on {target_ip} is active. (No recent systemd error logs)"
+        return output
+    except Exception as e:
+        return f"[WARN] Unable to reach microservice log host {target_ip}: {str(e)}"
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -222,6 +247,21 @@ def logout():
 @login_required_if_enabled
 def api_metrics():
     return jsonify(get_system_metrics())
+
+@app.route("/api/admin/logs")
+@login_required_if_enabled
+def api_logs():
+    service = request.args.get("service", "all")
+    lines = int(request.args.get("lines", 50))
+    
+    if service == "all":
+        results = {}
+        for s in ["backend", "frontend", "geoserver", "admin"]:
+            results[s] = fetch_remote_logs(s, lines=20)
+        return jsonify({"status": "ok", "logs": results})
+    else:
+        log_text = fetch_remote_logs(service, lines=lines)
+        return jsonify({"status": "ok", "service": service, "logs": log_text})
 
 @app.route("/")
 @login_required_if_enabled
